@@ -1,70 +1,82 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-pub enum TaskStatus {
-	ICEBOX,
-	INPROGRESS,
-	DONE
-}
+pub mod Tasker {
 
-pub struct Task {
-	title: String,
-	status: TaskStatus,
-	id: u32
-}
+	pub enum TaskStatus {
+		ICEBOX,
+		INPROGRESS,
+		DONE
+	}
+	pub struct Task {
+		pub title: String,
+		pub status: TaskStatus,
+		id: u32
+		// adding descriptors in the future would be nice, but I might just allow this to be extended.
+	}
+	pub struct TaskStack {
+		tasks: Vec<Task>,
+		id_counter: u32,
+		// This is right now stateful which I don't think I want.
+		//Maybe introduce a seperate function that mutates objects? not really sure right now.
+	}
 
-pub struct TaskStack {
-	tasks: Vec<Task>
-}
+	impl TaskStack {
+		pub fn new() -> Self {
+			TaskStack {
+				tasks: Vec::new(),
+				id_counter: 0,
+			}
+		}
 
-impl TaskStack {
-	pub fn new() -> Self {
-		TaskStack {
-			tasks: Vec::new(),
+
+		pub fn push(&mut self, task: Task) -> Result<&Task, u8> {
+			task.id = self.id_counter;
+			self.id_counter += 1
+			self.tasks.push(task);
+			Ok(&task)
 		}
 	}
 
-	pub fn push(&mut self, task: Task) {
-		self.tasks.push(task)
-	}
-}
 
-
-impl Task {
-	pub fn new(title: String, status: TaskStatus) -> Self {
-		Task {
-			title,
-			status,
-			id: 0
+	impl Task {
+		pub fn new(title: String, status: TaskStatus) -> Self {
+			Task {
+				title,
+				status,
+				id: 0
+			}
 		}
+
+		pub fn set_id(&mut self, id: u32) {
+			self.id = id
+		}
+
+
 	}
 
-	pub fn set_id(&mut self, id: u32) {
-		self.id = id
-	}
+
 }
 
 mod Timers {
-	use std::os::unix;
 
-	use crate::TaskStack;
-	use crate::Task;
-	struct Timer {
-		start: u32,
-		stop: u32,
+	use crate::Tasker::{Task, TaskStack};
+	use std::time::{SystemTime, SystemTimeError, Duration};
+	struct WorkSession {
+		start: SystemTime,
 		tasks: TaskStack
 	}
 
-	impl Timer {
-		pub fn start(start: u32) -> Self {
-			Timer {
-				start,
-				stop: 0,
-				tasks: TaskStack::new()
+	impl WorkSession {
+		pub fn start(start: u32, tasks: TaskStack) -> Self {
+			WorkSession {
+				start: SystemTime::now(),
+				tasks,
 			}
 		}
-		pub fn stop(&mut self) {
-			self.stop = 0;
+		pub fn stop(&self) -> (TaskStack, Result<Duration, SystemTimeError>){
+			//weird but it works
+			(
+				self.tasks, 
+				SystemTime::duration_since(&self.start,SystemTime::now())
+			)
 		}
 
 		pub fn add_task(&mut self, task: Task) {
@@ -75,14 +87,7 @@ mod Timers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-
+	use crate::Tasker::*;
 	#[test]
 	fn build_task() {
 		let task = Task::new(
@@ -102,7 +107,15 @@ mod tests {
 		);
 
 		let mut task_queue = TaskStack::new();
-		task_queue.push(task)
+
+		if let Ok(&Task) = task_queue.push(task) {
+			assert_eq!(5, 5);
+		} else {
+			assert_eq!(4, 5);
+		}
+		// match task_queue.push(task) {
+		// 	Ok()
+		// }
 	}
 
 }
